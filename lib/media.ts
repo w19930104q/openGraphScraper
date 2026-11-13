@@ -76,6 +76,115 @@ const zip = (array: any, ...args: any) => {
     .map((value: any, idx: number) => [value, ...args.map((arr: []) => arr[idx])]);
 };
 
+type MediaFamilyName = 'musicSong' | 'ogImage' | 'ogVideo';
+
+type MediaItemFieldName =
+  'musicSongDisc'
+  | 'musicSongProperty'
+  | 'musicSongTrack'
+  | 'ogImageAlt'
+  | 'ogImageHeight'
+  | 'ogImageProperty'
+  | 'ogImageSecureURL'
+  | 'ogImageType'
+  | 'ogImageWidth'
+  | 'ogVideoHeight'
+  | 'ogVideoProperty'
+  | 'ogVideoType'
+  | 'ogVideoWidth';
+
+type MediaItem = Partial<Record<MediaItemFieldName, string>>;
+
+// meta properties that start a new media item, in order of appearance
+const mediaRootProperties: Record<string, { family: MediaFamilyName; fieldName: MediaItemFieldName }> = {
+  'music:song': { family: 'musicSong', fieldName: 'musicSongProperty' },
+  'music:song:url': { family: 'musicSong', fieldName: 'musicSongProperty' },
+  'og:image': { family: 'ogImage', fieldName: 'ogImageProperty' },
+  'og:image:url': { family: 'ogImage', fieldName: 'ogImageProperty' },
+  'og:video': { family: 'ogVideo', fieldName: 'ogVideoProperty' },
+  'og:video:url': { family: 'ogVideo', fieldName: 'ogVideoProperty' },
+};
+
+// meta properties that belong to the most recent media item of the same family
+const mediaChildProperties: Record<string, { family: MediaFamilyName; fieldName: MediaItemFieldName }> = {
+  'music:song:disc': { family: 'musicSong', fieldName: 'musicSongDisc' },
+  'music:song:track': { family: 'musicSong', fieldName: 'musicSongTrack' },
+  'og:image:alt': { family: 'ogImage', fieldName: 'ogImageAlt' },
+  'og:image:height': { family: 'ogImage', fieldName: 'ogImageHeight' },
+  'og:image:secure_url': { family: 'ogImage', fieldName: 'ogImageSecureURL' },
+  'og:image:type': { family: 'ogImage', fieldName: 'ogImageType' },
+  'og:image:width': { family: 'ogImage', fieldName: 'ogImageWidth' },
+  'og:video:height': { family: 'ogVideo', fieldName: 'ogVideoHeight' },
+  'og:video:type': { family: 'ogVideo', fieldName: 'ogVideoType' },
+  'og:video:width': { family: 'ogVideo', fieldName: 'ogVideoWidth' },
+};
+
+const mediaItemFieldNames: Record<MediaFamilyName, MediaItemFieldName[]> = {
+  musicSong: ['musicSongProperty', 'musicSongTrack', 'musicSongDisc'],
+  ogImage: ['ogImageProperty', 'ogImageSecureURL', 'ogImageWidth', 'ogImageHeight', 'ogImageType', 'ogImageAlt'],
+  ogVideo: ['ogVideoProperty', 'ogVideoWidth', 'ogVideoHeight', 'ogVideoType'],
+};
+
+/**
+ * creates a tracker that groups og:image/og:video/music:song meta tags into
+ * media items based on the order the tags appear in the document
+ *
+ * @return {object} tracker with addMetaTag/applyTo methods
+ *
+ */
+export function mediaTracker() {
+  const items: Record<MediaFamilyName, MediaItem[]> = { musicSong: [], ogImage: [], ogVideo: [] };
+  const currentItemIndex: Record<MediaFamilyName, number> = { musicSong: -1, ogImage: -1, ogVideo: -1 };
+
+  return {
+    /**
+     * adds a meta tag to the tracker
+     *
+     * @param {string} property - the meta tag property/name
+     * @param {string} content - the meta tag content
+     * @return {boolean} true when the meta tag is an og media tag
+     *
+     */
+    addMetaTag(property: string, content: string): boolean {
+      const root = mediaRootProperties[property.toLowerCase()];
+      if (root) {
+        // every root starts a new item, so an empty root severs the previous item
+        items[root.family].push({ [root.fieldName]: content });
+        currentItemIndex[root.family] = items[root.family].length - 1;
+        return true;
+      }
+      const child = mediaChildProperties[property.toLowerCase()];
+      if (child) {
+        const item = items[child.family][currentItemIndex[child.family]];
+        // child properties only belong to the most recent root of the same
+        // family, orphans are ignored and the first value of an item wins
+        if (item && item[child.fieldName] === undefined) {
+          item[child.fieldName] = content;
+        }
+        return true;
+      }
+      return false;
+    },
+
+    /**
+     * writes the tracked media items onto the ogObject as aligned arrays
+     *
+     * @param {object} ogObject - the current ogObject
+     *
+     */
+    applyTo(ogObject: OgObjectInternal) {
+      (Object.keys(items) as MediaFamilyName[]).forEach((family) => {
+        if (items[family].length === 0) return;
+        mediaItemFieldNames[family].forEach((fieldName) => {
+          if (items[family].some((item) => item[fieldName] !== undefined)) {
+            ogObject[fieldName] = items[family].map((item) => item[fieldName]) as string[];
+          }
+        });
+      });
+    },
+  };
+}
+
 /**
  * formats the multiple media values
  *
@@ -98,11 +207,14 @@ export function mediaSetup(ogObject: OgObjectInternal) {
     ogObject.ogImageSecureURL = ogObject.ogImageSecureURL ? ogObject.ogImageSecureURL : [];
     ogObject.ogImageURL = ogObject.ogImageURL ? ogObject.ogImageURL : [];
     ogObject.ogImageProperty = ogObject.ogImageProperty ? ogObject.ogImageProperty : [];
-    // set ogImageProperty to ogImageSecureURL if it exists
-    // eslint-disable-next-line max-len
-    ogObject.ogImageProperty = (ogObject.ogImageSecureURL.length !== 0) ? ogObject.ogImageSecureURL : ogObject.ogImageProperty;
     // fall back to ogImageURL if ogImageProperty isn't set
     ogObject.ogImageProperty = (ogObject.ogImageProperty.length !== 0) ? ogObject.ogImageProperty : ogObject.ogImageURL;
+    // an og:image:secure_url only replaces the url of the image it belongs to
+    // eslint-disable-next-line max-len
+    ogObject.ogImageProperty = ogObject.ogImageProperty.map((url, index) => ogObject.ogImageSecureURL?.[index] ?? url);
+    // fall back to ogImageSecureURL if there is no ogImageProperty/ogImageURL
+    // eslint-disable-next-line max-len
+    ogObject.ogImageProperty = (ogObject.ogImageProperty.length !== 0) ? ogObject.ogImageProperty : ogObject.ogImageSecureURL;
     ogObject.ogImageWidth = ogObject.ogImageWidth ? ogObject.ogImageWidth : [];
     ogObject.ogImageHeight = ogObject.ogImageHeight ? ogObject.ogImageHeight : [];
     ogObject.ogImageType = ogObject.ogImageType ? ogObject.ogImageType : [];

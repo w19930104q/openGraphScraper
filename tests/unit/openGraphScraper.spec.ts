@@ -305,7 +305,7 @@ describe('return ogs', function () {
         });
     });
 
-    it('when there is a og:image:secure_url tag', function () {
+    it('when there is only a og:image:secure_url tag without an og:image root', function () {
       const secureUrlHTML = `
         <html>
           <head>
@@ -321,9 +321,8 @@ describe('return ogs', function () {
       return ogs({ url: 'www.test.com' })
         .then(function (data) {
           expect(data.result.success).to.be.eql(true);
-          expect(data.result.ogImage).to.be.eql([{
-            url: 'test1.png', type: 'png',
-          }]);
+          // an orphan og:image:secure_url is ignored since it has no image to belong to
+          expect(data.result.ogImage).to.be.eql(undefined);
           expect(data.result.requestUrl).to.be.eql('http://www.test.com');
           expect(data.html).to.be.eql(secureUrlHTML);
           expect(data.response).to.be.a('response');

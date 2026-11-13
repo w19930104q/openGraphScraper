@@ -133,11 +133,10 @@ describe('static check meta tags', function () {
       .then(function (data) {
         expect(data.result.success).to.be.eql(true);
         expect(data.result.requestUrl).to.be.eql('http://www.test.com');
+        // child properties before the first og:image root are orphans and ignored
         expect(data.result.ogImage).to.be.eql([{
           url: 'https://foobar.png',
-          width: '1',
-          height: '2',
-          type: 'image/png',
+          type: 'png',
           alt: 'alt text',
         }]);
         expect(data.html).to.be.eql(metaHTML);
@@ -213,11 +212,10 @@ describe('static check meta tags', function () {
       .then(function (data) {
         expect(data.result.success).to.be.eql(true);
         expect(data.result.requestUrl).to.be.eql('http://www.test.com');
+        // og:video:height/og:video:type appear before the og:video:url root and are ignored
         expect(data.result.ogVideo).to.be.eql([{
           url: 'http://www.foo.com',
           width: '1',
-          height: '2',
-          type: 'text/bar',
         }]);
         expect(data.html).to.be.eql(metaHTML);
         expect(data.response).to.be.a('response');

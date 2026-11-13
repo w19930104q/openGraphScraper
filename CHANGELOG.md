@@ -1,5 +1,12 @@
 # Change Log
 
+## Unreleased
+
+- Fixed grouped media collection (`og:image`/`og:video`, `twitter:image`/`twitter:player`, and `music:song`). Media values are now split into objects by their root meta tags in document order instead of merging parallel arrays by index, which could attach one item's dimensions to another item or drop images when only some had `secure_url`.
+- Structured properties (`width`/`height`/`type`/`alt`/`stream`/`track`/`disc`) now only belong to the most recent object of their own media class; properties appearing before any root tag of that class are ignored.
+- Both `og:image` and `og:image:url` start a new image object. An empty root tag still cuts off the previous object (it is simply dropped as an invalid object). `og:image:secure_url` only replaces the url of the image it belongs to rather than replacing the whole image group.
+- Repeated URLs are no longer merged; each root tag produces its own object. Output fields, types, the 10-object limit, sorting, `customMetaTags`, and non-media fallbacks are unchanged.
+
 ## 6.13.0
 
 - Added URL and IP validation to block non-HTTP(S) URLs and private, loopback, link-local, reserved, and mapped IP addresses. See `lib/isPublicAddress.ts`.

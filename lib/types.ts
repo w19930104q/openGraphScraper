@@ -120,8 +120,68 @@ export interface VideoObject {
 
 export interface MusicSongObject {
   disc?: string;
-  track?: number;
+  track?: string;
   url: string;
+}
+
+/**
+ * The meta tag field names that make up the grouped media
+ * (og:image/og:video/twitter:image/twitter:player/music:song) objects.
+ */
+export type MediaFieldName =
+  | 'musicSongDisc'
+  | 'musicSongProperty'
+  | 'musicSongTrack'
+  | 'musicSongUrl'
+  | 'ogImageAlt'
+  | 'ogImageHeight'
+  | 'ogImageProperty'
+  | 'ogImageSecureURL'
+  | 'ogImageType'
+  | 'ogImageURL'
+  | 'ogImageWidth'
+  | 'ogVideoHeight'
+  | 'ogVideoProperty'
+  | 'ogVideoType'
+  | 'ogVideoWidth'
+  | 'twitterImageAlt'
+  | 'twitterImageHeight'
+  | 'twitterImageProperty'
+  | 'twitterImageSrc'
+  | 'twitterImageWidth'
+  | 'twitterPlayerHeight'
+  | 'twitterPlayerProperty'
+  | 'twitterPlayerStream'
+  | 'twitterPlayerWidth';
+
+/**
+ * The grouped media categories. Each category is built from its own set of
+ * root meta tags (ex: `og:image`/`og:image:url`) and the structured
+ * properties following them in the document.
+ */
+export type MediaClass = 'ogImage' | 'ogVideo' | 'twitterImage' | 'twitterPlayer' | 'musicSong';
+
+/**
+ * A media object while it is being collected from the meta tags. Every value
+ * comes from a meta tag content attribute, so all values are strings.
+ */
+export interface CollectedMediaObject {
+  alt?: string;
+  disc?: string;
+  height?: string;
+  stream?: string;
+  track?: string;
+  type?: string;
+  url?: string;
+  width?: string;
+}
+
+export interface MediaAccumulator {
+  ogImage: CollectedMediaObject[];
+  ogVideo: CollectedMediaObject[];
+  twitterImage: CollectedMediaObject[];
+  twitterPlayer: CollectedMediaObject[];
+  musicSong: CollectedMediaObject[];
 }
 
 export interface OgObjectInternal {
@@ -209,10 +269,7 @@ export interface OgObjectInternal {
   musicRadioStation?: string;
   musicReleaseDate?: string;
   musicSong?: MusicSongObject[];
-  musicSongDisc?: string[];
-  musicSongProperty?: string[];
-  musicSongTrack?: string[];
-  musicSongUrl?: string[];
+  mediaCollector?: MediaAccumulator;
   ogArticleAuthor?: string;
   ogArticleExpirationTime?: string;
   ogArticleModifiedTime?: string;
@@ -230,13 +287,6 @@ export interface OgObjectInternal {
   ogDeterminer?: string;
   ogEpisode?: string;
   ogImage?: ImageObject[];
-  ogImageAlt?: string[];
-  ogImageHeight?: string[];
-  ogImageProperty?: string[];
-  ogImageSecureURL?: string[];
-  ogImageType?: string[];
-  ogImageURL?: string[];
-  ogImageWidth?: string[];
   ogLocale?: string;
   ogLocaleAlternate?: string;
   ogLogo?: string;
@@ -258,16 +308,12 @@ export interface OgObjectInternal {
   ogVideoActorRole?: string;
   ogVideoDirector?: string;
   ogVideoDuration?: string;
-  ogVideoHeight?: string[];
   ogVideoOther?: string;
-  ogVideoProperty?: string[];
   ogVideoReleaseDate?: string;
   ogVideoSecureURL?: string;
   ogVideoSeries?: string;
   ogVideoTag?: string;
   ogVideoTvShow?: string;
-  ogVideoType?: string[];
-  ogVideoWidth?: string[];
   ogVideoWriter?: string;
   ogWebsite?: string;
   placeLocationLatitude?: string;
@@ -308,17 +354,8 @@ export interface OgObjectInternal {
   twitterCreatorId?: string;
   twitterDescription?: string;
   twitterImage?: TwitterImageObject[];
-  twitterImageAlt?: string[];
-  twitterImageHeight?: string[];
-  twitterImageProperty?: string[];
-  twitterImageSrc?: string[];
-  twitterImageWidth?: string[];
   twitterPlayer?: TwitterPlayerObject[];
-  twitterPlayerHeight?: string[];
-  twitterPlayerProperty?: string[];
-  twitterPlayerStream?: string[];
   twitterPlayerStreamContentType?: string;
-  twitterPlayerWidth?: string[];
   twitterSite?: string;
   twitterSiteId?: string;
   twitterTitle?: string;
@@ -326,31 +363,5 @@ export interface OgObjectInternal {
   updatedTime?: string;
 }
 
-// Omit values from mediaMapperProperties
-export type OgObject = Omit<
-OgObjectInternal,
-'musicSongDisc' |
-'musicSongProperty' |
-'musicSongTrack' |
-'musicSongUrl' |
-'ogImageAlt' |
-'ogImageHeight' |
-'ogImageProperty' |
-'ogImageSecureURL' |
-'ogImageType' |
-'ogImageURL' |
-'ogImageWidth' |
-'ogVideoHeight' |
-'ogVideoProperty' |
-'ogVideoType' |
-'ogVideoWidth' |
-'twitterImageAlt' |
-'twitterImageHeight' |
-'twitterImageProperty' |
-'twitterImageSrc' |
-'twitterImageWidth' |
-'twitterPlayerHeight' |
-'twitterPlayerProperty' |
-'twitterPlayerStream' |
-'twitterPlayerWidth'
->;
+// Omit the internal media accumulator; only the formatted media arrays are exposed
+export type OgObject = Omit<OgObjectInternal, 'mediaCollector'>;

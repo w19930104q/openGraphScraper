@@ -1,8 +1,8 @@
-import type { OgObjectInternal } from './types';
+import type { MediaFieldName, OgObjectInternal } from './types';
 type Fields = {
     multiple: boolean;
     property: string;
-    fieldName: keyof OgObjectInternal;
+    fieldName: keyof OgObjectInternal | MediaFieldName;
 }[];
 /**
  * array of meta tags ogs is looking for

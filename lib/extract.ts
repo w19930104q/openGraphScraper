@@ -2,6 +2,7 @@ import { load } from 'cheerio';
 
 import fallback from './fallback';
 import fields from './fields';
+import { collectMediaTag, createMediaCollector, isMediaFieldName } from './mediaCollector';
 import mediaSetup from './media';
 import { unescapeScriptText } from './utils';
 
@@ -19,6 +20,7 @@ export default function extractMetaTags(body: string, options: OpenGraphScraperO
   let ogObject: OgObjectInternal = { success: true };
   const $ = load(body);
   const metaFields = fields;
+  const mediaCollector = createMediaCollector();
 
   // find all of the open graph info in the meta tags
   $('meta').each((index, meta) => {
@@ -27,38 +29,10 @@ export default function extractMetaTags(body: string, options: OpenGraphScraperO
     const content: any = meta.attribs.content || meta.attribs.value;
     metaFields.forEach((item) => {
       if (item && property.toLowerCase() === item.property.toLowerCase()) {
-        // check if fieldName is one of mediaMapperProperties
-        if (
-          item.fieldName === 'musicSongDisc'
-          || item.fieldName === 'musicSongProperty'
-          || item.fieldName === 'musicSongTrack'
-          || item.fieldName === 'musicSongUrl'
-          || item.fieldName === 'ogImageAlt'
-          || item.fieldName === 'ogImageHeight'
-          || item.fieldName === 'ogImageProperty'
-          || item.fieldName === 'ogImageSecureURL'
-          || item.fieldName === 'ogImageType'
-          || item.fieldName === 'ogImageURL'
-          || item.fieldName === 'ogImageWidth'
-          || item.fieldName === 'ogVideoHeight'
-          || item.fieldName === 'ogVideoProperty'
-          || item.fieldName === 'ogVideoType'
-          || item.fieldName === 'ogVideoWidth'
-          || item.fieldName === 'twitterImageAlt'
-          || item.fieldName === 'twitterImageHeight'
-          || item.fieldName === 'twitterImageProperty'
-          || item.fieldName === 'twitterImageSrc'
-          || item.fieldName === 'twitterImageWidth'
-          || item.fieldName === 'twitterPlayerHeight'
-          || item.fieldName === 'twitterPlayerProperty'
-          || item.fieldName === 'twitterPlayerStream'
-          || item.fieldName === 'twitterPlayerWidth'
-        ) {
-          if (!ogObject[item.fieldName]) {
-            ogObject[item.fieldName] = [content];
-          } else {
-            ogObject[item.fieldName]?.push(content);
-          }
+        // grouped media values (og:image/og:video/twitter:image/twitter:player/music:song)
+        // are collected into objects split by their root meta tags
+        if (isMediaFieldName(item.fieldName)) {
+          collectMediaTag(mediaCollector, item.fieldName, content);
         } else {
           ogObject[item.fieldName] = content;
         }
@@ -84,6 +58,8 @@ export default function extractMetaTags(body: string, options: OpenGraphScraperO
       if (ogObject.customMetaTags && Object.keys(ogObject.customMetaTags).length === 0) delete ogObject.customMetaTags;
     }
   });
+
+  ogObject.mediaCollector = mediaCollector;
 
   // formats the multiple media values
   ogObject = mediaSetup(ogObject);

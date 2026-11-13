@@ -125,23 +125,40 @@ describe('static check meta tags', function () {
       <meta property="og:image:secure_url" content="https://foobar.png">
     </head></html>`;
 
-    mockAgent.get('http://www.test.com')
-      .intercept({ path: '/' })
-      .reply(200, metaHTML);
-
-    return ogs({ url: 'www.test.com' })
+    // the width/height/type tags come before the og:image root, so they are
+    // orphan properties and must not be attached to the image; secure_url (after
+    // the root) only replaces the url of the image it belongs to
+    return ogs({ html: metaHTML, onlyGetOpenGraphInfo: true })
       .then(function (data) {
         expect(data.result.success).to.be.eql(true);
-        expect(data.result.requestUrl).to.be.eql('http://www.test.com');
         expect(data.result.ogImage).to.be.eql([{
+          url: 'https://foobar.png',
+          alt: 'alt text',
+        }]);
+        expect(data.html).to.be.eql(metaHTML);
+        expect(data.response).to.eql({ body: metaHTML });
+      });
+  });
+
+  it('image keeps the properties of the root they follow', function () {
+    const rootFirstHTML = `<html><head>
+      <meta property="og:image" content="http://foobar.png">
+      <meta property="og:image:width" content="1">
+      <meta property="og:image:height" content="2">
+      <meta property="og:image:type" content="image/png">
+      <meta property="og:image:alt" content="alt text">
+      <meta property="og:image:secure_url" content="https://foobar.png">
+    </head></html>`;
+
+    return ogs({ html: rootFirstHTML, onlyGetOpenGraphInfo: true })
+      .then(function (data) {
+        expect(data.result.ogImage).to.eql([{
           url: 'https://foobar.png',
           width: '1',
           height: '2',
           type: 'image/png',
           alt: 'alt text',
         }]);
-        expect(data.html).to.be.eql(metaHTML);
-        expect(data.response).to.be.a('response');
       });
   });
 
@@ -164,14 +181,11 @@ describe('static check meta tags', function () {
       <meta property="twitter:title" name="twitter:title" content="the foo of bar" />
     </head></html>`;
 
-    mockAgent.get('http://www.test.com')
-      .intercept({ path: '/' })
-      .reply(200, metaHTML);
-
-    return ogs({ url: 'www.test.com' })
+    // the player width/height tags come before the twitter:player root, so
+    // they are orphan properties and must not be attached to the player
+    return ogs({ html: metaHTML, onlyGetOpenGraphInfo: true })
       .then(function (data) {
         expect(data.result.success).to.be.eql(true);
-        expect(data.result.requestUrl).to.be.eql('http://www.test.com');
         expect(data.result.twitterAppIdGooglePlay).to.be.eql('googlefoo');
         expect(data.result.twitterAppIdiPad).to.be.eql('ipadfoo');
         expect(data.result.twitterAppIdiPhone).to.be.eql('iphonefoo');
@@ -185,14 +199,12 @@ describe('static check meta tags', function () {
         expect(data.result.twitterTitle).to.be.eql('the foo of bar');
         expect(data.result.twitterPlayer).to.be.eql([{
           url: 'https://www.bar.com',
-          width: '1',
-          height: '2',
         }]);
         expect(data.result.twitterImage).to.be.eql([{
           url: 'https://www.foo.com/bar.jpg',
         }]);
         expect(data.html).to.be.eql(metaHTML);
-        expect(data.response).to.be.a('response');
+        expect(data.response).to.eql({ body: metaHTML });
       });
   });
 
@@ -205,22 +217,17 @@ describe('static check meta tags', function () {
       <meta property="og:video:width" content="1">
     </head></html>`;
 
-    mockAgent.get('http://www.test.com')
-      .intercept({ path: '/' })
-      .reply(200, metaHTML);
-
-    return ogs({ url: 'www.test.com' })
+    // the height/type/width tags come before the og:video:url root, so they
+    // are orphan properties and must not be attached to the video
+    return ogs({ html: metaHTML, onlyGetOpenGraphInfo: true })
       .then(function (data) {
         expect(data.result.success).to.be.eql(true);
-        expect(data.result.requestUrl).to.be.eql('http://www.test.com');
         expect(data.result.ogVideo).to.be.eql([{
           url: 'http://www.foo.com',
           width: '1',
-          height: '2',
-          type: 'text/bar',
         }]);
         expect(data.html).to.be.eql(metaHTML);
-        expect(data.response).to.be.a('response');
+        expect(data.response).to.eql({ body: metaHTML });
       });
   });
 

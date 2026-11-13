@@ -7,6 +7,36 @@ import { unescapeScriptText } from './utils';
 
 import type { OgObjectInternal, OpenGraphScraperOptions } from './types';
 
+// structured og:image/og:video properties, grouped by document order.
+// each root tag (og:image, og:image:url, og:video, og:video:url) starts a new
+// group and every sub property that follows belongs to the most recent group
+interface MediaGroup {
+  alt?: string;
+  height?: string;
+  secureUrl?: string;
+  type?: string;
+  url?: string;
+  width?: string;
+}
+
+const ogImageGroupProperties: Record<string, keyof MediaGroup> = {
+  'og:image': 'url',
+  'og:image:url': 'url',
+  'og:image:alt': 'alt',
+  'og:image:height': 'height',
+  'og:image:secure_url': 'secureUrl',
+  'og:image:type': 'type',
+  'og:image:width': 'width',
+};
+
+const ogVideoGroupProperties: Record<string, keyof MediaGroup> = {
+  'og:video': 'url',
+  'og:video:url': 'url',
+  'og:video:height': 'height',
+  'og:video:type': 'type',
+  'og:video:width': 'width',
+};
+
 /**
  * extract all of the meta tags needed for ogs
  *
@@ -19,51 +49,56 @@ export default function extractMetaTags(body: string, options: OpenGraphScraperO
   let ogObject: OgObjectInternal = { success: true };
   const $ = load(body);
   const metaFields = fields;
+  const ogImageGroups: MediaGroup[] = [];
+  const ogVideoGroups: MediaGroup[] = [];
 
   // find all of the open graph info in the meta tags
   $('meta').each((index, meta) => {
     if (!meta.attribs || (!meta.attribs.property && !meta.attribs.name)) return;
     const property = meta.attribs.property || meta.attribs.name;
     const content: any = meta.attribs.content || meta.attribs.value;
-    metaFields.forEach((item) => {
-      if (item && property.toLowerCase() === item.property.toLowerCase()) {
-        // check if fieldName is one of mediaMapperProperties
-        if (
-          item.fieldName === 'musicSongDisc'
-          || item.fieldName === 'musicSongProperty'
-          || item.fieldName === 'musicSongTrack'
-          || item.fieldName === 'musicSongUrl'
-          || item.fieldName === 'ogImageAlt'
-          || item.fieldName === 'ogImageHeight'
-          || item.fieldName === 'ogImageProperty'
-          || item.fieldName === 'ogImageSecureURL'
-          || item.fieldName === 'ogImageType'
-          || item.fieldName === 'ogImageURL'
-          || item.fieldName === 'ogImageWidth'
-          || item.fieldName === 'ogVideoHeight'
-          || item.fieldName === 'ogVideoProperty'
-          || item.fieldName === 'ogVideoType'
-          || item.fieldName === 'ogVideoWidth'
-          || item.fieldName === 'twitterImageAlt'
-          || item.fieldName === 'twitterImageHeight'
-          || item.fieldName === 'twitterImageProperty'
-          || item.fieldName === 'twitterImageSrc'
-          || item.fieldName === 'twitterImageWidth'
-          || item.fieldName === 'twitterPlayerHeight'
-          || item.fieldName === 'twitterPlayerProperty'
-          || item.fieldName === 'twitterPlayerStream'
-          || item.fieldName === 'twitterPlayerWidth'
-        ) {
-          if (!ogObject[item.fieldName]) {
-            ogObject[item.fieldName] = [content];
-          } else {
-            ogObject[item.fieldName]?.push(content);
-          }
-        } else {
-          ogObject[item.fieldName] = content;
-        }
+    const lowerProperty = property.toLowerCase();
+    const groupKey = ogImageGroupProperties[lowerProperty] ?? ogVideoGroupProperties[lowerProperty];
+    if (groupKey) {
+      const groups = ogImageGroupProperties[lowerProperty] ? ogImageGroups : ogVideoGroups;
+      if (groupKey === 'url') {
+        // a root tag always starts a new group, even when it has no content
+        groups.push({ url: content });
+      } else if (groups.length > 0) {
+        // sub properties belong to the most recent group (last value wins);
+        // orphan sub properties with no preceding root tag are ignored
+        groups[groups.length - 1][groupKey] = content;
       }
-    });
+    } else {
+      metaFields.forEach((item) => {
+        if (item && lowerProperty === item.property.toLowerCase()) {
+          // check if fieldName is one of mediaMapperProperties
+          if (
+            item.fieldName === 'musicSongDisc'
+            || item.fieldName === 'musicSongProperty'
+            || item.fieldName === 'musicSongTrack'
+            || item.fieldName === 'musicSongUrl'
+            || item.fieldName === 'twitterImageAlt'
+            || item.fieldName === 'twitterImageHeight'
+            || item.fieldName === 'twitterImageProperty'
+            || item.fieldName === 'twitterImageSrc'
+            || item.fieldName === 'twitterImageWidth'
+            || item.fieldName === 'twitterPlayerHeight'
+            || item.fieldName === 'twitterPlayerProperty'
+            || item.fieldName === 'twitterPlayerStream'
+            || item.fieldName === 'twitterPlayerWidth'
+          ) {
+            if (!ogObject[item.fieldName]) {
+              ogObject[item.fieldName] = [content];
+            } else {
+              ogObject[item.fieldName]?.push(content);
+            }
+          } else {
+            ogObject[item.fieldName] = content;
+          }
+        }
+      });
+    }
 
     if (options.customMetaTags) {
       options.customMetaTags.forEach((item) => {
@@ -84,6 +119,24 @@ export default function extractMetaTags(body: string, options: OpenGraphScraperO
       if (ogObject.customMetaTags && Object.keys(ogObject.customMetaTags).length === 0) delete ogObject.customMetaTags;
     }
   });
+
+  // flatten the groups into aligned arrays so mediaSetup can zip them by index
+  // without values from one group shifting onto another
+  if (ogImageGroups.length > 0) {
+    ogObject.ogImageProperty = ogImageGroups.map((group) => group.url);
+    ogObject.ogImageSecureURL = ogImageGroups.map((group) => group.secureUrl);
+    ogObject.ogImageWidth = ogImageGroups.map((group) => group.width);
+    ogObject.ogImageHeight = ogImageGroups.map((group) => group.height);
+    ogObject.ogImageType = ogImageGroups.map((group) => group.type);
+    ogObject.ogImageAlt = ogImageGroups.map((group) => group.alt);
+  }
+
+  if (ogVideoGroups.length > 0) {
+    ogObject.ogVideoProperty = ogVideoGroups.map((group) => group.url);
+    ogObject.ogVideoWidth = ogVideoGroups.map((group) => group.width);
+    ogObject.ogVideoHeight = ogVideoGroups.map((group) => group.height);
+    ogObject.ogVideoType = ogVideoGroups.map((group) => group.type);
+  }
 
   // formats the multiple media values
   ogObject = mediaSetup(ogObject);

@@ -98,11 +98,19 @@ export function mediaSetup(ogObject: OgObjectInternal) {
     ogObject.ogImageSecureURL = ogObject.ogImageSecureURL ? ogObject.ogImageSecureURL : [];
     ogObject.ogImageURL = ogObject.ogImageURL ? ogObject.ogImageURL : [];
     ogObject.ogImageProperty = ogObject.ogImageProperty ? ogObject.ogImageProperty : [];
-    // set ogImageProperty to ogImageSecureURL if it exists
-    // eslint-disable-next-line max-len
-    ogObject.ogImageProperty = (ogObject.ogImageSecureURL.length !== 0) ? ogObject.ogImageSecureURL : ogObject.ogImageProperty;
-    // fall back to ogImageURL if ogImageProperty isn't set
-    ogObject.ogImageProperty = (ogObject.ogImageProperty.length !== 0) ? ogObject.ogImageProperty : ogObject.ogImageURL;
+    // merge og:image:secure_url/og:image/og:image:url per group, so a secure_url only
+    // replaces the url of its own group and sparse groups no longer shift values
+    const ogImageCount = Math.max(
+      ogObject.ogImageProperty.length,
+      ogObject.ogImageURL.length,
+      ogObject.ogImageSecureURL.length,
+    );
+    ogObject.ogImageProperty = Array.from(
+      { length: ogImageCount },
+      (unused, index) => ogObject.ogImageSecureURL?.[index]
+        ?? ogObject.ogImageProperty?.[index]
+        ?? ogObject.ogImageURL?.[index],
+    );
     ogObject.ogImageWidth = ogObject.ogImageWidth ? ogObject.ogImageWidth : [];
     ogObject.ogImageHeight = ogObject.ogImageHeight ? ogObject.ogImageHeight : [];
     ogObject.ogImageType = ogObject.ogImageType ? ogObject.ogImageType : [];

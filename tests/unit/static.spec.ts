@@ -117,10 +117,10 @@ describe('static check meta tags', function () {
 
   it('image', function () {
     const metaHTML = `<html><head>
+      <meta property="og:image" content="http://foobar.png">
       <meta property="og:image:height" content="2">
       <meta property="og:image:type" content="image/png">
       <meta property="og:image:width" content="1">
-      <meta property="og:image" content="http://foobar.png">
       <meta property="og:image:alt" content="alt text">
       <meta property="og:image:secure_url" content="https://foobar.png">
     </head></html>`;
@@ -198,10 +198,10 @@ describe('static check meta tags', function () {
 
   it('video', function () {
     const metaHTML = `<html><head>
-      <meta property="og:video:height" content="2">
       <meta property="og:video:secure_url" content="https://www.foo.com">
-      <meta property="og:video:type" content="text/bar">
       <meta property="og:video:url" content="http://www.foo.com">
+      <meta property="og:video:height" content="2">
+      <meta property="og:video:type" content="text/bar">
       <meta property="og:video:width" content="1">
     </head></html>`;
 

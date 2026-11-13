@@ -309,6 +309,7 @@ describe('return ogs', function () {
       const secureUrlHTML = `
         <html>
           <head>
+            <meta property="og:image" content="test1.png">
             <meta property="og:image:secure_url" content="test1.png">
           </head>
           <body></body>
